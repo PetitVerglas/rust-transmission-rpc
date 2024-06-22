@@ -253,9 +253,92 @@ pub enum TorrentAddedOrDuplicate {
 impl RpcResponseArgument for TorrentAddedOrDuplicate {}
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "kebab-case")]
+pub struct TorrentAddResponse {
+    pub torrent_duplicate: Option<Torrent>,
+    pub torrent_added: Option<Torrent>,
+}
+impl RpcResponseArgument for TorrentAddResponse {}
+
+#[derive(Deserialize, Debug)]
 pub struct TorrentRenamePath {
     pub path: Option<String>,
     pub name: Option<String>,
     pub id: Option<i64>,
 }
 impl RpcResponseArgument for TorrentRenamePath {}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::response::TorrentAddResponse;
+    use crate::types::{Result, RpcResponse, TorrentAddedOrDuplicate};
+    use serde_json;
+    use serde_json::Value;
+
+    #[test]
+    pub fn test_torrent_added_failure_with_torrent_add_response() -> Result<()> {
+        let v: RpcResponse<TorrentAddResponse> = serde_json::from_str(torrent_added_failure())?;
+        println!("{v:#?}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_torrent_added_success_with_torrent_add_response() -> Result<()> {
+        let v: RpcResponse<TorrentAddResponse> = serde_json::from_str(torrent_added_success())?;
+        println!("{v:#?}");
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_torrent_added_failure_with_torrent_added_or_duplicate() {
+        let v: RpcResponse<TorrentAddedOrDuplicate> =
+            serde_json::from_str(torrent_added_failure()).expect("Failure expected");
+        println!("{v:#?}");
+    }
+
+    #[test]
+    fn test_torrent_added_success_with_torrent_added_or_duplicate() -> Result<()> {
+        let v: RpcResponse<TorrentAddedOrDuplicate> =
+            serde_json::from_str(torrent_added_success())?;
+        println!("{v:#?}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_torrent_added_success_with_value() -> Result<()> {
+        let v: Value = serde_json::from_str(torrent_added_success())?;
+        println!("{v:?} {}", serde_json::to_string_pretty(&v).expect(""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_torrent_added_failure_with_value() -> Result<()> {
+        let v: Value = serde_json::from_str(torrent_added_failure())?;
+        println!("{v:?} {}", serde_json::to_string_pretty(&v).expect(""));
+        Ok(())
+    }
+
+    fn torrent_added_success() -> &'static str {
+        r#"
+        {
+            "arguments": {
+                "torrent-added": {
+                    "hashString": "bbdaece7c8daa85e1619469ab25d422a612cf923",
+                    "id": 2,
+                    "name": "toto.torrent"}
+                },
+            "result": "success"
+        }
+        "#
+    }
+
+    fn torrent_added_failure() -> &'static str {
+        r#"
+        {
+            "arguments": {},
+            "result": "download directory path is not absolute"
+        }
+        "#
+    }
+}

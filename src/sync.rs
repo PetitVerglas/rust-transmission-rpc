@@ -13,8 +13,8 @@ use crate::{
     types::{
         BasicAuth, BlocklistUpdate, FreeSpace, Id, Nothing, PortTest, Result, RpcRequest,
         RpcResponse, RpcResponseArgument, SessionClose, SessionGet, SessionStats, Torrent,
-        TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath,
-        TorrentSetArgs, Torrents,
+        TorrentAction, TorrentAddArgs, TorrentAddResponse, TorrentAddedOrDuplicate,
+        TorrentGetField, TorrentRenamePath, TorrentSetArgs, Torrents,
     },
     BodyString, TransError, MAX_RETRIES,
 };
@@ -731,7 +731,24 @@ impl SharableTransClient {
             !(add.metainfo.is_none() && add.filename.is_none()),
             "Metainfo or Filename should be provided"
         );
-        self.call(RpcRequest::torrent_add(add)).await
+        let result: RpcResponse<TorrentAddResponse> =
+            self.call(RpcRequest::torrent_add(add)).await?;
+
+        if let Some(torrent) = result.arguments.torrent_added {
+            Ok(RpcResponse {
+                arguments: TorrentAddedOrDuplicate::TorrentAdded(torrent),
+                result: result.result,
+            })
+        } else if let Some(torrent) = result.arguments.torrent_duplicate {
+            Ok(RpcResponse {
+                arguments: TorrentAddedOrDuplicate::TorrentDuplicate(torrent),
+                result: result.result,
+            })
+        } else {
+            Err(Box::<dyn std::error::Error + Send + Sync>::from(
+                result.result,
+            ))
+        }
     }
 
     /// Performs a JRPC call to the server

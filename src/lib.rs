@@ -9,8 +9,8 @@ pub use sync::SharableTransClient;
 use types::{
     BasicAuth, BlocklistUpdate, FreeSpace, Id, Nothing, PortTest, Result, RpcRequest, RpcResponse,
     RpcResponseArgument, SessionClose, SessionGet, SessionSet, SessionSetArgs, SessionStats,
-    Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField,
-    TorrentRenamePath, TorrentSetArgs, Torrents,
+    Torrent, TorrentAction, TorrentAddArgs, TorrentAddResponse, TorrentAddedOrDuplicate,
+    TorrentGetField, TorrentRenamePath, TorrentSetArgs, Torrents,
 };
 
 #[cfg(feature = "sync")]
@@ -123,9 +123,7 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
     ///     let args: SessionSetArgs = SessionSetArgs {
-    ///         download_dir: Some(
-    ///             "/torrent/download".to_string(),
-    ///         ),
+    ///         download_dir: Some("/torrent/download".to_string()),
     ///         ..SessionSetArgs::default()
     ///     };
     ///     let response: Result<RpcResponse<SessionSet>> = client.session_set(args).await;
@@ -789,6 +787,7 @@ impl TransClient {
     ///
     /// # Panics
     /// Either metainfo or torrent filename must be set or this call will panic.
+
     pub async fn torrent_add(
         &mut self,
         add: TorrentAddArgs,
@@ -797,7 +796,24 @@ impl TransClient {
             add.metainfo.is_some() || add.filename.is_some(),
             "Metainfo or Filename should be provided"
         );
-        self.call(RpcRequest::torrent_add(add)).await
+        let result: RpcResponse<TorrentAddResponse> =
+            self.call(RpcRequest::torrent_add(add)).await?;
+
+        if let Some(torrent) = result.arguments.torrent_added {
+            Ok(RpcResponse {
+                arguments: TorrentAddedOrDuplicate::TorrentAdded(torrent),
+                result: result.result,
+            })
+        } else if let Some(torrent) = result.arguments.torrent_duplicate {
+            Ok(RpcResponse {
+                arguments: TorrentAddedOrDuplicate::TorrentDuplicate(torrent),
+                result: result.result,
+            })
+        } else {
+            Err(Box::<dyn std::error::Error + Send + Sync>::from(
+                result.result,
+            ))
+        }
     }
 
     /// Performs a JRPC call to the server

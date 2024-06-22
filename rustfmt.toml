@@ -1,3 +1,4 @@
+edition = "2021"
 version = "Two"
 
 wrap_comments = true
