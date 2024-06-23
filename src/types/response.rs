@@ -1,18 +1,44 @@
-use std::collections::HashMap;
-
 use chrono::serde::ts_seconds::deserialize as from_ts;
 use chrono::{DateTime, Utc};
 use serde::de::Deserializer;
 use serde::Deserialize;
 use serde_repr::*;
+use std::collections::HashMap;
+use std::fmt;
 
 use crate::types::request::Priority;
 use crate::types::Id;
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 pub struct RpcResponse<T: RpcResponseArgument> {
     pub arguments: T,
     pub result: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct RpcResponseRaw<T: RpcResponseArgument> {
+    pub arguments: T,
+    pub result: String,
+}
+
+impl<'de, T: RpcResponseArgument + Deserialize<'de> + fmt::Debug> Deserialize<'de>
+    for RpcResponse<T>
+{
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let res: RpcResponseRaw<T> = Deserialize::deserialize(deserializer)?;
+
+        match res.result.as_str() {
+            "success" => Ok(RpcResponse {
+                arguments: res.arguments,
+                result: res.result,
+            }),
+            // _ => Err(serde::de::Error::custom(format!("{res:?})").to_string())),
+            _ => Err(serde::de::Error::custom(res.result)),
+        }
+    }
 }
 
 impl<T: RpcResponseArgument> RpcResponse<T> {
@@ -251,7 +277,7 @@ impl RpcResponseArgument for Nothing {}
 pub enum TorrentAddedOrDuplicate {
     TorrentDuplicate(Torrent),
     TorrentAdded(Torrent),
-    Error,
+    None,
 }
 
 impl RpcResponseArgument for TorrentAddedOrDuplicate {}
@@ -268,7 +294,7 @@ impl<'de> Deserialize<'de> for TorrentAddedOrDuplicate {
         match (added, duplicate) {
             (Some(torrent), None) => Ok(TorrentAddedOrDuplicate::TorrentAdded(torrent)),
             (None, Some(torrent)) => Ok(TorrentAddedOrDuplicate::TorrentDuplicate(torrent)),
-            _ => Ok(TorrentAddedOrDuplicate::Error),
+            _ => Ok(TorrentAddedOrDuplicate::None),
         }
     }
 }
@@ -288,11 +314,11 @@ mod tests {
     use serde_json::Value;
 
     #[test]
+    #[should_panic]
     fn test_torrent_added_failure_with_torrent_added_or_duplicate() {
         let v: RpcResponse<TorrentAddedOrDuplicate> =
-            serde_json::from_str(torrent_added_failure()).expect("Failure expected");
+            serde_json::from_str(torrent_added_failure()).expect("failure expected");
         println!("{v:#?}");
-        assert!(!v.is_ok());
     }
 
     #[test]

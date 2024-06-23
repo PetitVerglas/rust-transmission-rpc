@@ -123,9 +123,7 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
     ///     let args: SessionSetArgs = SessionSetArgs {
-    ///         download_dir: Some(
-    ///             "/torrent/download".to_string(),
-    ///         ),
+    ///         download_dir: Some("/torrent/download".to_string()),
     ///         ..SessionSetArgs::default()
     ///     };
     ///     let response: Result<RpcResponse<SessionSet>> = client.session_set(args).await;
@@ -244,7 +242,7 @@ impl TransClient {
     ///     TransClient,
     /// };
     ///
-    /// #[tokio::main]
+    /// // #[tokio::main]
     /// async fn main() -> Result<()> {
     ///     dotenv().ok();
     ///     env_logger::init();
@@ -299,7 +297,7 @@ impl TransClient {
     ///     let response: Result<RpcResponse<BlocklistUpdate>> = client.blocklist_update().await;
     ///     match response {
     ///         Ok(_) => println!("Yay!"),
-    ///         Err(_) => panic!("Oh no!"),
+    ///         Err(_) => panic!("Oh no! {response:?}"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
     ///     Ok(())
@@ -342,7 +340,7 @@ impl TransClient {
     ///     let response: Result<RpcResponse<FreeSpace>> = client.free_space(dir).await;
     ///     match response {
     ///         Ok(_) => println!("Yay!"),
-    ///         Err(_) => panic!("Oh no!"),
+    ///         Err(_) => panic!("Oh no! {:#?}", response),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
     ///     Ok(())
@@ -872,7 +870,7 @@ mod tests {
     #[tokio::test]
     pub async fn test_malformed_url() -> Result<()> {
         dotenv().ok();
-        env_logger::init();
+        // env_logger::init();
         let url = env::var("TURL")?;
 
         let mut client;
